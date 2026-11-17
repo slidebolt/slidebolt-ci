@@ -9,7 +9,7 @@ pipeline {
     }
     stage('Reconcile jobs') {
       steps {
-        jobDsl targets: 'jobs/tenant.groovy', removedJobAction: 'DISABLE', removedViewAction: 'DELETE', lookupStrategy: 'JENKINS_ROOT'
+        jobDsl sandbox: true, targets: 'jobs/tenant.groovy', removedJobAction: 'DISABLE', removedViewAction: 'DELETE', lookupStrategy: 'JENKINS_ROOT'
       }
     }
   }
