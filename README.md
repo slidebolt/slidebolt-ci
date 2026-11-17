@@ -59,5 +59,8 @@ scripts/verify-slidebolt.sh v1.0.64
 ```
 
 It builds from `release/versions.env`, validates the image, and runs `sb-e2e`
-without reaching production or real LAN devices.
+without reaching production or real LAN devices. In Jenkins, the harness runs
+inside the disposable, pinned `e2e-runner` image using the dedicated daemon's
+network namespace. That lets it reach ephemeral test bridges while keeping the
+host Docker socket and production networks outside the controller.
 

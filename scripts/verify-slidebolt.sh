@@ -3,9 +3,11 @@ set -euo pipefail
 
 ref="${1:-v1.0.64}"
 root="${WORKSPACE:-$(pwd)}/work"
+ci_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 release_dir="$root/release"
 e2e_dir="$root/sb-e2e"
 image="slidebolt-ci/slidebolt:${BUILD_TAG:-local}"
+runner_image="slidebolt-ci/e2e-runner:${BUILD_TAG:-local}"
 askpass=""
 
 cleanup() {
@@ -70,7 +72,20 @@ docker run --rm --entrypoint /bin/sh "$image" -euc '
 '
 
 docker pull andrius/asterisk@sha256:6f748f08ea128b3a3ca364a2c790a684dab4e71257c79fbbfb9e19e1756854b1
-make -C "$e2e_dir" unit
-make -C "$e2e_dir" test SUITE=core IMAGE="$image"
-make -C "$e2e_dir" test SUITE=portability IMAGE="$image"
+docker build --pull -t "$runner_image" "$ci_root/e2e-runner"
+
+# Jenkins talks to a dedicated Docker-in-Docker daemon. A process in the
+# controller cannot route to bridge addresses created inside that daemon, so
+# execute the harness in a disposable runner sharing the daemon's network
+# namespace. The e2e directory is mounted at the identical absolute path: its
+# Compose bind mounts are therefore resolved consistently by the daemon.
+docker run --rm \
+  --network host \
+  --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock \
+  --mount type=bind,src="$e2e_dir",dst="$e2e_dir" \
+  --mount type=volume,src=slidebolt-ci-go-cache,dst=/go/pkg/mod \
+  --workdir "$e2e_dir" \
+  -e SB_E2E_IMAGE="$image" \
+  "$runner_image" \
+  bash -euc 'make unit; make test SUITE=core IMAGE="$SB_E2E_IMAGE"; make test SUITE=portability IMAGE="$SB_E2E_IMAGE"'
 
