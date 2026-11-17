@@ -1,0 +1,62 @@
+pipeline {
+  agent any
+  options { timestamps(); timeout(time: 60, unit: 'MINUTES'); disableConcurrentBuilds() }
+  parameters {
+    string(name: 'VERSION_NAME', description: 'Semantic Android release version')
+    string(name: 'VERSION_CODE', description: 'Monotonically increasing Android version code')
+    string(name: 'GIT_REF', defaultValue: 'main', description: 'Android commit or tag to sign')
+  }
+  stages {
+    stage('Safety interlock') {
+      steps {
+        script {
+          if (!params.VERSION_NAME?.trim() || !(params.VERSION_CODE ==~ /[1-9][0-9]*/)) {
+            error('VERSION_NAME and a positive integer VERSION_CODE are required')
+          }
+        }
+      }
+    }
+    stage('Checkout Android') {
+      steps {
+        dir('android') {
+          checkout([$class: 'GitSCM', branches: [[name: params.GIT_REF]], userRemoteConfigs: [[url: 'https://github.com/slidebolt/slidebolt-client-android.git']]])
+        }
+      }
+    }
+    stage('Build signed APK and AAB') {
+      steps {
+        dir('android') {
+          withCredentials([
+            file(credentialsId: 'android-release-keystore', variable: 'ANDROID_KEYSTORE_FILE'),
+            string(credentialsId: 'android-keystore-password', variable: 'ANDROID_KEYSTORE_PASSWORD'),
+            string(credentialsId: 'android-key-alias', variable: 'ANDROID_KEY_ALIAS'),
+            string(credentialsId: 'android-key-password', variable: 'ANDROID_KEY_PASSWORD'),
+          ]) {
+            withEnv([
+              'JAVA_HOME=/opt/java17',
+              "PATH=/opt/java17/bin:${env.PATH}",
+              "ANDROID_VERSION_NAME=${params.VERSION_NAME}",
+              "ANDROID_VERSION_CODE=${params.VERSION_CODE}",
+            ]) {
+              sh '''
+                scripts/release.sh
+                apksigner verify --verbose app-phone/build/outputs/apk/release/app-phone-release.apk
+                apksigner verify --verbose app-tv/build/outputs/apk/release/app-tv-release.apk
+                jarsigner -verify app-phone/build/outputs/bundle/release/app-phone-release.aab
+                jarsigner -verify app-tv/build/outputs/bundle/release/app-tv-release.aab
+                sha256sum app-phone/build/outputs/apk/release/*.apk app-phone/build/outputs/bundle/release/*.aab \
+                  app-tv/build/outputs/apk/release/*.apk app-tv/build/outputs/bundle/release/*.aab > SHA256SUMS
+              '''
+            }
+          }
+        }
+      }
+    }
+  }
+  post {
+    always {
+      archiveArtifacts allowEmptyArchive: true, artifacts: 'android/**/build/outputs/**/*.apk,android/**/build/outputs/**/*.aab,android/SHA256SUMS'
+      cleanWs(deleteDirs: true)
+    }
+  }
+}

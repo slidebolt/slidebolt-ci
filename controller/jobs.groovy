@@ -25,4 +25,5 @@ pipelineFromSCM('slidebolt-bootstrap-verify', 'pipelines/Jenkinsfile.slidebolt',
 pipelineFromSCM('slidebolt-candidate', 'pipelines/Jenkinsfile.slidebolt-candidate', 'H/5 * * * *', false)
 pipelineFromSCM('slidebolt-promote', 'pipelines/Jenkinsfile.slidebolt-promote', '', true)
 pipelineFromSCM('android-verify', 'pipelines/Jenkinsfile.android', 'H/5 * * * *', false)
+pipelineFromSCM('android-promote', 'pipelines/Jenkinsfile.android-promote', '', true)
 

@@ -13,7 +13,7 @@ docker compose build
 docker compose up -d
 ```
 
-Open `http://127.0.0.1:18080` by default. The configuration creates three jobs:
+Open `http://127.0.0.1:18080` by default. The configuration creates five jobs:
 
 - `slidebolt-bootstrap-verify`: rebuilds an existing release from its published
   component tags and runs the isolated core and portability suites.
@@ -23,6 +23,9 @@ Open `http://127.0.0.1:18080` by default. The configuration creates three jobs:
   reviewed and publishing credentials are installed.
 - `android-verify`: polls `slidebolt-client-android/main` and runs its full
   host build and BDD suite.
+- `android-promote`: disabled signing gate that produces verified phone/TV APK
+  and AAB artifacts plus SHA-256 checksums after its four Android signing
+  credential IDs are installed.
 
 The controller runs current Jenkins LTS on Java 21 and pins a separate Java 17
 toolchain for Android, Gradle through each repository's wrapper, and Android
