@@ -19,8 +19,8 @@ Open `http://127.0.0.1:18080` by default. The configuration creates five jobs:
   component tags and runs the isolated core and portability suites.
 - `slidebolt-candidate`: polls `release/main` and verifies candidates without
   publishing.
-- `slidebolt-promote`: intentionally disabled until the bootstrap proof is
-  reviewed and publishing credentials are installed.
+- `slidebolt-promote`: manually promotes an exact successful candidate build;
+  it has no polling or automatic trigger.
 - `android-verify`: polls `slidebolt-client-android/main` and runs its full
   host build and BDD suite.
 - `android-promote`: disabled signing gate that produces verified phone/TV APK
@@ -49,6 +49,30 @@ Before running SlideBolt verification, create a Jenkins **Secret text**
 credential named `github-read-token` with read access to the private
 `slidebolt/sb-e2e` repository. The pipeline exposes it only through a masked
 `GIT_ASKPASS` helper and removes that helper after checkout.
+
+To publish final releases, create a Jenkins **Username with password**
+credential named `github-release-publisher`. The username is the GitHub owner
+of the token. Use a fine-grained token limited to `slidebolt/release` with
+Contents read/write and permission to write the `slidebolt/release` container
+package. Verification and candidate jobs never receive this credential.
+
+## Final release promotion
+
+Run `slidebolt-candidate` first. After it succeeds, run `slidebolt-promote`
+with a new `vX.Y.Z`, that candidate's build number, and the same version in the
+confirmation field. Promotion:
+
+1. imports the fingerprinted candidate proof;
+2. confirms its release commit is still `release/main`;
+3. waits for every component's AMD64 and ARM64 GitHub Release binaries;
+4. repeats the complete image and end-to-end verification;
+5. pushes the immutable versioned GHCR image;
+6. creates a draft GitHub Release containing the catalog, embedded build
+   manifest, install bundle, image digest, and checksums;
+7. downloads and verifies the draft assets, publishes the release, then moves
+   the `latest` image tag.
+
+The version tag and `latest` are never moved by an ordinary verification job.
 
 ## Bootstrap proof from the command line
 

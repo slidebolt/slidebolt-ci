@@ -1,4 +1,5 @@
 configuration-as-code:2147.v8a_8d38668c72
+copyartifact:805.v9d1393350780
 credentials-binding:728.v902a_273b_8947
 git:5.11.0
 job-dsl:3732.v9a_c49a_61a_313

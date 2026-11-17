@@ -9,6 +9,21 @@ pipeline {
         }
       }
     }
+    stage('Record candidate proof') {
+      steps {
+        sh '''
+          release_commit="$(git -C work/release rev-parse HEAD)"
+          jq -n \
+            --arg releaseCommit "$release_commit" \
+            --arg ciCommit "$(git rev-parse HEAD)" \
+            --arg buildNumber "$BUILD_NUMBER" \
+            --arg buildUrl "$BUILD_URL" \
+            '{schemaVersion:1,releaseCommit:$releaseCommit,ciCommit:$ciCommit,candidateBuild:($buildNumber|tonumber),candidateUrl:$buildUrl}' \
+            > candidate-proof.json
+        '''
+        archiveArtifacts artifacts: 'candidate-proof.json', fingerprint: true
+      }
+    }
   }
   post {
     always {

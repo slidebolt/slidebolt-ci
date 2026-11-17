@@ -23,7 +23,7 @@ def pipelineFromSCM = { String jobName, String pipelinePath, String pollSpec, bo
 
 pipelineFromSCM('slidebolt-bootstrap-verify', 'pipelines/Jenkinsfile.slidebolt', '', false)
 pipelineFromSCM('slidebolt-candidate', 'pipelines/Jenkinsfile.slidebolt-candidate', 'H/5 * * * *', false)
-pipelineFromSCM('slidebolt-promote', 'pipelines/Jenkinsfile.slidebolt-promote', '', true)
+pipelineFromSCM('slidebolt-promote', 'pipelines/Jenkinsfile.slidebolt-promote', '', false)
 pipelineFromSCM('android-verify', 'pipelines/Jenkinsfile.android', 'H/5 * * * *', false)
 pipelineFromSCM('android-promote', 'pipelines/Jenkinsfile.android-promote', '', true)
 
