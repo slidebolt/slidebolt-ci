@@ -1,0 +1,10 @@
+configuration-as-code:2147.v8a_8d38668c72
+credentials-binding:728.v902a_273b_8947
+git:5.11.0
+job-dsl:3732.v9a_c49a_61a_313
+junit:1458.1460.vd53b_087eeb_2c
+pipeline-stage-view:2.41
+timestamper:1.30
+workflow-aggregator:608.v67378e9d3db_1
+ws-cleanup:0.49
+

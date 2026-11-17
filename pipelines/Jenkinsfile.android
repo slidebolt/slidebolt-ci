@@ -1,0 +1,28 @@
+pipeline {
+  agent any
+  options { timestamps(); timeout(time: 60, unit: 'MINUTES'); disableConcurrentBuilds() }
+  stages {
+    stage('Checkout Android') {
+      steps {
+        dir('android') { git branch: 'main', url: 'https://github.com/slidebolt/slidebolt-client-android.git' }
+      }
+    }
+    stage('Host verification') {
+      steps {
+        dir('android') {
+          withEnv(['JAVA_HOME=/opt/java17', "PATH=/opt/java17/bin:${env.PATH}"]) {
+            sh './gradlew --no-daemon check bddTest assembleDebug'
+          }
+        }
+      }
+    }
+  }
+  post {
+    always {
+      junit allowEmptyResults: true, testResults: 'android/**/build/test-results/**/*.xml'
+      archiveArtifacts allowEmptyArchive: true, artifacts: 'android/**/build/outputs/**/*.apk,android/**/build/reports/**/*'
+      cleanWs(deleteDirs: true)
+    }
+  }
+}
+

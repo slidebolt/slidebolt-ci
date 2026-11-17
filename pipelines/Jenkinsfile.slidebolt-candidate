@@ -1,0 +1,16 @@
+pipeline {
+  agent any
+  options { timestamps(); timeout(time: 90, unit: 'MINUTES'); disableConcurrentBuilds() }
+  stages {
+    stage('Verify release main') {
+      steps { sh 'scripts/verify-slidebolt.sh main' }
+    }
+  }
+  post {
+    always {
+      archiveArtifacts allowEmptyArchive: true, artifacts: 'work/sb-e2e/artifacts/**/*'
+      cleanWs(deleteDirs: true)
+    }
+  }
+}
+

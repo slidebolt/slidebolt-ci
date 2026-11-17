@@ -1,0 +1,16 @@
+pipeline {
+  agent any
+  options { timestamps(); timeout(time: 120, unit: 'MINUTES'); disableConcurrentBuilds() }
+  parameters {
+    string(name: 'RELEASE_VERSION', description: 'New v-prefixed release version')
+    string(name: 'COMMIT', description: 'Exact release/main commit already verified by the candidate job')
+  }
+  stages {
+    stage('Disabled safety interlock') {
+      steps {
+        error('Publishing remains disabled until the read-only bootstrap proof is reviewed and release-publisher credentials are installed.')
+      }
+    }
+  }
+}
+
