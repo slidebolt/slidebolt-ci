@@ -1,5 +1,5 @@
 pipeline {
-  agent { label 'slidebolt' }
+  agent { label 'slidebolt || built-in' }
   options { timestamps(); timeout(time: 120, unit: 'MINUTES'); disableConcurrentBuilds() }
   parameters {
     string(name: 'RELEASE_VERSION', description: 'New v-prefixed release version')
