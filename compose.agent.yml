@@ -1,0 +1,68 @@
+name: slidebolt-ci-agent
+
+services:
+  init-data:
+    image: alpine:3.22@sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f
+    restart: "no"
+    network_mode: none
+    command: ["sh", "-euc", "mkdir -p /data/agent /data/docker && chown -R 1000:1000 /data/agent"]
+    volumes:
+      - type: bind
+        source: ${SLIDEBOLT_CI_DATA_ROOT:?set SLIDEBOLT_CI_DATA_ROOT}
+        target: /data
+        bind:
+          create_host_path: true
+
+  docker:
+    image: docker:27-dind@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce
+    privileged: true
+    restart: unless-stopped
+    command: ["--host=tcp://0.0.0.0:2375", "--tls=false"]
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    volumes:
+      - ${SLIDEBOLT_CI_DATA_ROOT}/docker:/var/lib/docker
+      - ${SLIDEBOLT_CI_DATA_ROOT}/agent:/home/jenkins/agent
+    networks: [tenant]
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  agent:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    image: slidebolt-ci-agent:local
+    restart: unless-stopped
+    depends_on:
+      init-data:
+        condition: service_completed_successfully
+      docker:
+        condition: service_healthy
+    environment:
+      JENKINS_URL: ${JENKINS_URL:?set JENKINS_URL}
+      JENKINS_AGENT_NAME: ${JENKINS_AGENT_NAME:-slidebolt-primary}
+      JENKINS_AGENT_WORKDIR: /home/jenkins/agent
+      JENKINS_WEB_SOCKET: "true"
+      DOCKER_HOST: tcp://docker:2375
+    entrypoint: ["/bin/bash", "-euc"]
+    command:
+      - |
+        export JENKINS_SECRET="$$(< /run/secrets/jenkins-agent-secret)"
+        exec /usr/local/bin/jenkins-agent
+    volumes:
+      - ${SLIDEBOLT_CI_DATA_ROOT}/agent:/home/jenkins/agent
+      - type: bind
+        source: ${JENKINS_AGENT_SECRET_FILE:?set JENKINS_AGENT_SECRET_FILE}
+        target: /run/secrets/jenkins-agent-secret
+        read_only: true
+    networks: [tenant]
+    security_opt: [no-new-privileges:true]
+    mem_limit: ${SLIDEBOLT_AGENT_MEMORY_LIMIT:-12g}
+    cpus: ${SLIDEBOLT_AGENT_CPU_LIMIT:-6.0}
+
+networks:
+  tenant:
+    internal: false

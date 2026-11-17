@@ -1,10 +1,29 @@
 # slidebolt-ci
 
-Standalone, LAN-owned verification and release automation for SlideBolt. The
-Jenkins controller talks only to the dedicated Docker-in-Docker daemon in this
-stack; it never mounts the production Docker socket.
+LAN-owned verification and release automation for the Slidebolt tenant on a
+shared Jenkins controller. The controller has no executors or Docker access.
+All Slidebolt work runs on one exclusive WebSocket agent backed by its own
+Docker-in-Docker daemon, workspace, cache, credentials, and job folder; it
+never mounts the production Docker socket.
 
-## Start
+## Shared-controller agent
+
+The generic controller creates an inbound node named `slidebolt-primary` with
+label `slidebolt`. Deploy [compose.agent.yml](compose.agent.yml) as a separate
+Portainer stack with these non-secret environment values:
+
+```text
+JENKINS_URL=https://your-trusted-jenkins-host/
+JENKINS_AGENT_SECRET_FILE=/host/path/to/the/generated-node-secret
+SLIDEBOLT_CI_DATA_ROOT=/host/path/to/slidebolt-ci-data
+```
+
+The generated node secret is bind-mounted read-only and never appears in the
+repository or container environment. The tenant seed job reads
+`catalog/packages.json` and creates one proof-producing verification job per
+package plus the full-product candidate and promotion gates.
+
+## Legacy standalone controller
 
 ```bash
 cp .env.example .env
@@ -13,7 +32,9 @@ docker compose build
 docker compose up -d
 ```
 
-Open `http://127.0.0.1:18080` by default. The configuration creates five jobs:
+The prior standalone stack remains available only during migration and is
+retired after the shared controller completes a production release. It opens
+on `http://127.0.0.1:18080` and creates five legacy jobs:
 
 - `slidebolt-bootstrap-verify`: rebuilds an existing release from its published
   component tags and runs the isolated core and portability suites.

@@ -1,16 +1,17 @@
 pipeline {
-  agent any
+  agent { label 'slidebolt' }
   options { timestamps(); timeout(time: 120, unit: 'MINUTES'); disableConcurrentBuilds() }
   parameters {
     string(name: 'RELEASE_VERSION', description: 'New v-prefixed release version')
     string(name: 'CANDIDATE_BUILD', description: 'Successful slidebolt-candidate build number')
     string(name: 'CONFIRM_VERSION', description: 'Repeat RELEASE_VERSION to authorize publication')
+    string(name: 'CANDIDATE_JOB', defaultValue: 'Slidebolt/release/candidate', description: 'Candidate job containing the fingerprinted proof')
   }
   stages {
     stage('Load verified candidate') {
       steps {
         copyArtifacts(
-          projectName: 'slidebolt-candidate',
+          projectName: params.CANDIDATE_JOB,
           selector: specific(params.CANDIDATE_BUILD),
           filter: 'candidate-proof.json',
           fingerprintArtifacts: true
@@ -32,8 +33,7 @@ pipeline {
     stage('Reverify and publish') {
       steps {
         withCredentials([
-          string(credentialsId: 'github-read-token', variable: 'GITHUB_READ_TOKEN'),
-          usernamePassword(credentialsId: 'github-release-publisher', usernameVariable: 'GITHUB_PUBLISHER_USER', passwordVariable: 'GITHUB_RELEASE_TOKEN'),
+          usernamePassword(credentialsId: 'github-release-publisher', usernameVariable: 'GITHUB_PUBLISHER_USER', passwordVariable: 'GITHUB_RELEASE_TOKEN')
         ]) {
           sh 'scripts/promote-slidebolt.sh "$RELEASE_VERSION" candidate-proof.json'
         }

@@ -1,0 +1,57 @@
+pipeline {
+  agent { label 'slidebolt' }
+  options {
+    timestamps()
+    timeout(time: 60, unit: 'MINUTES')
+    disableConcurrentBuilds()
+    skipDefaultCheckout(true)
+  }
+  stages {
+    stage('Checkout CI contract') {
+      steps {
+        dir('ci') {
+          git branch: 'main', url: 'https://github.com/slidebolt/slidebolt-ci.git'
+        }
+      }
+    }
+    stage('Checkout package') {
+      steps {
+        dir('source') {
+          checkout([$class: 'GitSCM',
+            branches: [[name: params.REVISION]],
+            userRemoteConfigs: [[url: "https://github.com/slidebolt/${params.REPOSITORY}.git"]]
+          ])
+        }
+      }
+    }
+    stage('Verify package') {
+      steps {
+        sh 'ci/scripts/verify-package.sh "$PACKAGE_KIND" "$WORKSPACE/source"'
+      }
+    }
+    stage('Record proof') {
+      steps {
+        sh '''
+          commit="$(git -C source rev-parse HEAD)"
+          jq -n \
+            --arg repository "$REPOSITORY" \
+            --arg kind "$PACKAGE_KIND" \
+            --arg commit "$commit" \
+            --arg revision "$REVISION" \
+            --arg buildUrl "$BUILD_URL" \
+            --arg agent "$NODE_NAME" \
+            '{schemaVersion:1,repository:$repository,kind:$kind,commit:$commit,revision:$revision,buildUrl:$buildUrl,agent:$agent,verifiedAt:(now|todateiso8601)}' \
+            > package-proof.json
+        '''
+        archiveArtifacts artifacts: 'package-proof.json', fingerprint: true
+      }
+    }
+  }
+  post {
+    always {
+      junit allowEmptyResults: true, testResults: 'source/**/build/test-results/**/*.xml,source/**/test-results/**/*.xml'
+      archiveArtifacts allowEmptyArchive: true, artifacts: 'source/**/build/reports/**/*,source/**/dist/**/*'
+      cleanWs(deleteDirs: true)
+    }
+  }
+}

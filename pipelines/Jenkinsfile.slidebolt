@@ -1,5 +1,5 @@
 pipeline {
-  agent any
+  agent { label 'slidebolt' }
   options { timestamps(); timeout(time: 90, unit: 'MINUTES'); disableConcurrentBuilds() }
   parameters {
     string(name: 'RELEASE_REF', defaultValue: 'v1.0.64', description: 'Existing release tag to reproduce')
@@ -10,9 +10,7 @@ pipeline {
     }
     stage('Reproduce SlideBolt') {
       steps {
-        withCredentials([string(credentialsId: 'github-read-token', variable: 'GITHUB_READ_TOKEN')]) {
-          sh 'scripts/verify-slidebolt.sh "$RELEASE_REF"'
-        }
+        sh 'scripts/verify-slidebolt.sh "$RELEASE_REF"'
       }
     }
   }

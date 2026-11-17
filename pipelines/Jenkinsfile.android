@@ -1,5 +1,5 @@
 pipeline {
-  agent any
+  agent { label 'slidebolt' }
   options { timestamps(); timeout(time: 60, unit: 'MINUTES'); disableConcurrentBuilds() }
   stages {
     stage('Checkout Android') {

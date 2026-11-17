@@ -1,12 +1,10 @@
 pipeline {
-  agent any
+  agent { label 'slidebolt' }
   options { timestamps(); timeout(time: 90, unit: 'MINUTES'); disableConcurrentBuilds() }
   stages {
     stage('Verify release main') {
       steps {
-        withCredentials([string(credentialsId: 'github-read-token', variable: 'GITHUB_READ_TOKEN')]) {
-          sh 'scripts/verify-slidebolt.sh main'
-        }
+        sh 'scripts/verify-slidebolt.sh main'
       }
     }
     stage('Record candidate proof') {

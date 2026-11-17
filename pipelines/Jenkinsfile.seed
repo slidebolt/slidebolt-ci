@@ -1,0 +1,17 @@
+pipeline {
+  agent { label 'slidebolt' }
+  options { timestamps(); timeout(time: 10, unit: 'MINUTES'); disableConcurrentBuilds() }
+  stages {
+    stage('Checkout tenant catalog') {
+      steps {
+        git branch: 'main', url: 'https://github.com/slidebolt/slidebolt-ci.git'
+      }
+    }
+    stage('Reconcile jobs') {
+      steps {
+        jobDsl targets: 'jobs/tenant.groovy', removedJobAction: 'DISABLE', removedViewAction: 'DELETE', lookupStrategy: 'JENKINS_ROOT'
+      }
+    }
+  }
+  post { always { cleanWs(deleteDirs: true) } }
+}
