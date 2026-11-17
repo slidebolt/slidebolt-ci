@@ -21,8 +21,16 @@ services:
     environment:
       DOCKER_TLS_CERTDIR: ""
     volumes:
-      - ${SLIDEBOLT_CI_DATA_ROOT}/docker:/var/lib/docker
-      - ${SLIDEBOLT_CI_DATA_ROOT}/agent:/home/jenkins/agent
+      - type: bind
+        source: ${SLIDEBOLT_CI_DATA_ROOT}/docker
+        target: /var/lib/docker
+        bind:
+          create_host_path: true
+      - type: bind
+        source: ${SLIDEBOLT_CI_DATA_ROOT}/agent
+        target: /home/jenkins/agent
+        bind:
+          create_host_path: true
     networks: [tenant]
     healthcheck:
       test: ["CMD", "docker", "info"]
@@ -53,7 +61,11 @@ services:
         export JENKINS_SECRET="$$(< /run/secrets/jenkins-agent-secret)"
         exec /usr/local/bin/jenkins-agent
     volumes:
-      - ${SLIDEBOLT_CI_DATA_ROOT}/agent:/home/jenkins/agent
+      - type: bind
+        source: ${SLIDEBOLT_CI_DATA_ROOT}/agent
+        target: /home/jenkins/agent
+        bind:
+          create_host_path: true
       - type: bind
         source: ${JENKINS_AGENT_SECRET_FILE:?set JENKINS_AGENT_SECRET_FILE}
         target: /run/secrets/jenkins-agent-secret
