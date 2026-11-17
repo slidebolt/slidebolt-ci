@@ -1,6 +1,6 @@
 jenkins:
   systemMessage: "SlideBolt standalone CI — configuration is managed by slidebolt-ci."
-  numExecutors: 2
+  numExecutors: 1
   mode: NORMAL
   securityRealm:
     local:

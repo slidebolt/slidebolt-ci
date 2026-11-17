@@ -29,6 +29,9 @@ toolchain for Android, Gradle through each repository's wrapper, and Android
 SDK 37 for reproducible build-only verification. Emulator/KVM and
 real-device LAN discovery are deliberately separate future agents; neither is
 required to compile, test, lint, or package the phone and TV APKs.
+The controller has one executor so heavyweight final-product builds cannot
+compete with one another. Additional emulator or LAN agents add capacity
+without weakening that serialization boundary.
 
 ## Storage and secrets
 
