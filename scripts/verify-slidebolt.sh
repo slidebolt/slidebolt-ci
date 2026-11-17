@@ -66,7 +66,7 @@ docker run --rm --entrypoint /bin/sh "$image" -euc '
   test -f /app/ui/apps/api/dist/index.js
   test -f /usr/share/nginx/html/index.html
   nginx -t
-  grep -q '"mode":"tags"' /app/build-manifest.json
+  grep -q "\"mode\":\"tags\"" /app/build-manifest.json
 '
 
 docker pull andrius/asterisk@sha256:6f748f08ea128b3a3ca364a2c790a684dab4e71257c79fbbfb9e19e1756854b1
