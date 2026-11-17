@@ -54,12 +54,10 @@ services:
       JENKINS_AGENT_NAME: ${JENKINS_AGENT_NAME:-slidebolt-primary}
       JENKINS_AGENT_WORKDIR: /home/jenkins/agent
       JENKINS_WEB_SOCKET: "true"
+      REMOTING_OPTS: -noReconnectAfter 2m
+      JENKINS_SESSION_PROBE_INTERVAL_SECONDS: "15"
       DOCKER_HOST: tcp://docker:2375
-    entrypoint: ["/bin/bash", "-euc"]
-    command:
-      - |
-        export JENKINS_SECRET="$$(< /run/secrets/jenkins-agent-secret)"
-        exec /usr/local/bin/jenkins-agent
+    entrypoint: ["/usr/local/bin/jenkins-agent-supervisor"]
     volumes:
       - type: bind
         source: ${SLIDEBOLT_CI_DATA_ROOT}/agent

@@ -13,6 +13,7 @@ COPY --from=docker_cli /usr/local/libexec/docker/cli-plugins/docker-compose /usr
 COPY --from=go_toolchain /usr/local/go /usr/local/go
 COPY --from=java17_toolchain /opt/java/openjdk /opt/java17
 COPY --from=node_toolchain /usr/local/ /usr/local/
+COPY --chmod=0755 agent/jenkins-agent-supervisor /usr/local/bin/jenkins-agent-supervisor
 ENV PATH=/usr/local/go/bin:${PATH} \
     JAVA17_HOME=/opt/java17
 RUN rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg \

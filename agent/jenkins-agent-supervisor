@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+controller_session() {
+  curl --fail --silent --show-error --location --head \
+    --max-time "${JENKINS_SESSION_PROBE_TIMEOUT_SECONDS:-10}" \
+    "${JENKINS_URL%/}/login" 2>/dev/null \
+    | tr -d '\r' \
+    | awk 'tolower($1) == "x-jenkins-session:" { print $2; exit }' \
+    || true
+}
+
+export JENKINS_SECRET="$(< /run/secrets/jenkins-agent-secret)"
+probe_interval="${JENKINS_SESSION_PROBE_INTERVAL_SECONDS:-15}"
+agent_pid=''
+
+stop_agent() {
+  if [[ -n "${agent_pid}" ]]; then
+    kill -TERM "${agent_pid}" 2>/dev/null || true
+    wait "${agent_pid}" 2>/dev/null || true
+  fi
+}
+trap stop_agent TERM INT
+
+while true; do
+  observed_session="$(controller_session)"
+  /usr/local/bin/jenkins-agent &
+  agent_pid=$!
+
+  while kill -0 "${agent_pid}" 2>/dev/null; do
+    sleep "${probe_interval}"
+    current_session="$(controller_session)"
+
+    if [[ -z "${observed_session}" && -n "${current_session}" ]]; then
+      observed_session="${current_session}"
+      continue
+    fi
+
+    if [[ -n "${current_session}" && "${current_session}" != "${observed_session}" ]]; then
+      echo "Jenkins controller session changed; reconnecting agent" >&2
+      kill -TERM "${agent_pid}" 2>/dev/null || true
+      break
+    fi
+  done
+
+  wait "${agent_pid}" 2>/dev/null || true
+  agent_pid=''
+  sleep 2
+done
