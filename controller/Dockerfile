@@ -1,7 +1,7 @@
-FROM docker:27-cli AS docker_cli
-FROM golang:1.26-bookworm AS go_toolchain
-FROM eclipse-temurin:17-jdk AS java17_toolchain
-FROM jenkins/jenkins:2.580.2-jdk21
+FROM docker:27-cli@sha256:851f91d241214e7c6db86513b270d58776379aacc5eb9c4a87e5b47115e3065c AS docker_cli
+FROM golang:1.26-bookworm@sha256:dc40a13b61304647ed7e5d581d246b86413dfc29d63c6d018310feb93cd98fc0 AS go_toolchain
+FROM eclipse-temurin:17-jdk@sha256:fbe9d94debbe24e529acfe235b98f065edea050a2dc00129b7d86261ce3248c8 AS java17_toolchain
+FROM jenkins/jenkins:2.580.2-jdk21@sha256:74401de6a6f92e1afe1b02d1c8e3d0c33f263bfb5275dd8813f9150355f2367b
 
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
