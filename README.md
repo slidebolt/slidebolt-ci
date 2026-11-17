@@ -39,6 +39,11 @@ Do not put credentials in this repository. Add publishing, SlideBolt admin,
 and Android signing credentials through Jenkins Credentials after bootstrap.
 The portable configuration refers only to credential IDs.
 
+Before running SlideBolt verification, create a Jenkins **Secret text**
+credential named `github-read-token` with read access to the private
+`slidebolt/sb-e2e` repository. The pipeline exposes it only through a masked
+`GIT_ASKPASS` helper and removes that helper after checkout.
+
 ## Bootstrap proof from the command line
 
 The same verification used by Jenkins is directly runnable:

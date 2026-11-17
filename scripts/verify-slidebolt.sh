@@ -6,6 +6,12 @@ root="${WORKSPACE:-$(pwd)}/work"
 release_dir="$root/release"
 e2e_dir="$root/sb-e2e"
 image="slidebolt-ci/slidebolt:${BUILD_TAG:-local}"
+askpass=""
+
+cleanup() {
+  [[ -z "$askpass" ]] || rm -f "$askpass"
+}
+trap cleanup EXIT
 
 mkdir -p "$root"
 if [[ -d "$release_dir/.git" ]]; then
@@ -18,7 +24,20 @@ git -C "$release_dir" checkout --detach "$ref"
 if [[ -d "$e2e_dir/.git" ]]; then
   git -C "$e2e_dir" fetch --prune origin
 else
-  git clone https://github.com/slidebolt/sb-e2e.git "$e2e_dir"
+  if [[ -n "${GITHUB_READ_TOKEN:-}" ]]; then
+    askpass="$(mktemp)"
+    chmod 700 "$askpass"
+    cat >"$askpass" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+  *Username*) printf '%s\n' x-access-token ;;
+  *) printf '%s\n' "$GITHUB_READ_TOKEN" ;;
+esac
+EOF
+    GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git clone https://github.com/slidebolt/sb-e2e.git "$e2e_dir"
+  else
+    git clone https://github.com/slidebolt/sb-e2e.git "$e2e_dir"
+  fi
 fi
 git -C "$e2e_dir" checkout --detach origin/main
 

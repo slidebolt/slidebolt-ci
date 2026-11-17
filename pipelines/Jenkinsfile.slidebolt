@@ -9,7 +9,11 @@ pipeline {
       steps { sh 'docker version && docker compose version && go version' }
     }
     stage('Reproduce SlideBolt') {
-      steps { sh 'scripts/verify-slidebolt.sh "$RELEASE_REF"' }
+      steps {
+        withCredentials([string(credentialsId: 'github-read-token', variable: 'GITHUB_READ_TOKEN')]) {
+          sh 'scripts/verify-slidebolt.sh "$RELEASE_REF"'
+        }
+      }
     }
   }
   post {
