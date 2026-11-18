@@ -23,6 +23,13 @@ repository or container environment. The tenant seed job reads
 `catalog/packages.json` and creates one proof-producing verification job per
 package plus the full-product candidate and promotion gates.
 
+Tenant jobs are explicit gates. Package jobs accept a catalog-owned repository
+and verification kind plus an exact revision; release orchestration invokes
+them after the repository's own CI succeeds. The candidate gate is invoked
+after the release catalog changes. Neither job type polls the shared
+`slidebolt-ci` pipeline repository, so CI-only changes cannot fan out package
+or product builds.
+
 ## Legacy standalone controller
 
 ```bash

@@ -23,11 +23,10 @@ catalog.packages.each { item ->
     description("Verifies the exact ${item.repository} commit and archives an immutable package proof.")
     logRotator { numToKeep(20); artifactNumToKeep(10) }
     parameters {
-      stringParam('REPOSITORY', item.repository, 'Catalog-owned repository; do not change for scheduled builds')
+      stringParam('REPOSITORY', item.repository, 'Catalog-owned repository; do not change for explicit builds')
       choiceParam('PACKAGE_KIND', [item.kind], 'Catalog-owned verification contract')
       stringParam('REVISION', '*/main', 'Git branch, tag, or commit to prove')
     }
-    triggers { scm('H/5 * * * *') }
     definition {
       cpsScm {
         scm {
@@ -48,7 +47,6 @@ catalog.packages.each { item ->
 pipelineJob('Slidebolt/release/candidate') {
   description('Builds and verifies the complete image from release/main without publishing it.')
   logRotator { numToKeep(20); artifactNumToKeep(10) }
-  triggers { scm('H/5 * * * *') }
   definition {
     cpsScm {
       scm {
