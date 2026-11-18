@@ -28,6 +28,12 @@ api() {
     -H 'Accept: application/vnd.github+json' \
     -H 'X-GitHub-Api-Version: 2022-11-28' "$@"
 }
+api_asset() {
+  curl --fail-with-body --silent --show-error \
+    -H "Authorization: Bearer $GITHUB_RELEASE_TOKEN" \
+    -H 'Accept: application/octet-stream' \
+    -H 'X-GitHub-Api-Version: 2022-11-28' "$@"
+}
 
 valid_version "$version" || die 'version must look like v1.2.3'
 [[ -f "$proof" ]] || die "candidate proof not found: $proof"
@@ -81,37 +87,75 @@ tar -czf "$artifacts_dir/slidebolt-${version}-install.tar.gz" -C "$release_dir" 
 
 printf '%s' "$GITHUB_RELEASE_TOKEN" | docker login ghcr.io -u "$GITHUB_PUBLISHER_USER" --password-stdin >/dev/null
 version_image="$registry_image:$version"
+resuming=false
 if docker manifest inspect "$version_image" >/dev/null 2>&1; then
-  die "immutable registry tag already exists: $version_image"
+  [[ "${RESUME_PARTIAL:-false}" == 'true' ]] \
+    || die "immutable registry tag already exists: $version_image"
+  resuming=true
+  docker pull "$version_image" >/dev/null
+  image_ref="$(docker image inspect "$version_image" --format '{{range .RepoDigests}}{{println .}}{{end}}' | grep -m1 "^${registry_image}@sha256:")"
+  image_digest="${image_ref##*@}"
+  [[ "$image_digest" =~ ^sha256:[0-9a-f]{64}$ ]] || die 'existing registry image has no valid digest'
+  docker run --rm --entrypoint /bin/cat "$version_image" /app/build-manifest.json \
+    > "$root/existing-build-manifest.json"
+  jq -S '{mode,repos}' "$artifacts_dir/build-manifest.json" > "$root/expected-repos.json"
+  jq -S '{mode,repos}' "$root/existing-build-manifest.json" > "$root/existing-repos.json"
+  cmp "$root/expected-repos.json" "$root/existing-repos.json" \
+    || die 'existing immutable image was built from different component commits'
+else
+  docker tag "$local_image" "$version_image"
+  docker push "$version_image" | tee "$push_output"
+  image_digest="$(sed -nE 's/.*digest: (sha256:[0-9a-f]+).*/\1/p' "$push_output" | tail -1)"
+  [[ -n "$image_digest" ]] || die 'registry did not report an image digest'
 fi
-docker tag "$local_image" "$version_image"
-docker push "$version_image" | tee "$push_output"
-image_digest="$(sed -nE 's/.*digest: (sha256:[0-9a-f]+).*/\1/p' "$push_output" | tail -1)"
-[[ -n "$image_digest" ]] || die 'registry did not report an image digest'
 printf '%s@%s\n' "$registry_image" "$image_digest" > "$artifacts_dir/IMAGE"
 (cd "$artifacts_dir" && sha256sum IMAGE >> SHA256SUMS)
 
 release_json="$root/release.json"
-jq -n --arg tag "$version" --arg commit "$commit" --arg digest "$image_digest" \
-  '{tag_name:$tag,target_commitish:$commit,name:$tag,draft:true,prerelease:false,generate_release_notes:true,body:("Container: `ghcr.io/slidebolt/release:"+$tag+"`\n\nDigest: `"+$digest+"`")}' \
-  > "$root/create-release.json"
-api -X POST "https://api.github.com/repos/$repo/releases" \
-  -H 'Content-Type: application/json' --data-binary "@$root/create-release.json" > "$release_json"
-release_id="$(jq -er .id "$release_json")"
-upload_url="$(jq -er .upload_url "$release_json" | sed 's/{.*//')"
+if [[ "$resuming" == true ]]; then
+  api "https://api.github.com/repos/$repo/releases?per_page=100" \
+    | jq -e --arg tag "$version" --arg commit "$commit" \
+      '[.[] | select(.tag_name == $tag and .draft == true and .target_commitish == $commit)] | select(length == 1) | .[0]' \
+      > "$release_json" \
+    || die 'exactly one matching draft release was not found'
+  release_id="$(jq -er .id "$release_json")"
+  remote_dir="$root/remote-artifacts"
+  mkdir -p "$remote_dir"
+  jq -e '[.assets[].name] | sort == (["IMAGE", "SHA256SUMS", "build-manifest.json", "quickstart-catalog.json", ("slidebolt-" + $tag + "-install.tar.gz")] | sort)' \
+    --arg tag "$version" "$release_json" >/dev/null \
+    || die 'draft release has an unexpected asset set'
+  while read -r name asset_id; do
+    api_asset -L "https://api.github.com/repos/$repo/releases/assets/$asset_id" > "$remote_dir/$name"
+  done < <(jq -r '.assets[] | [.name, (.id|tostring)] | @tsv' "$release_json")
+  (cd "$remote_dir" && sha256sum -c SHA256SUMS) \
+    || die 'draft release asset checksum verification failed'
+  cmp "$remote_dir/IMAGE" "$artifacts_dir/IMAGE" \
+    || die 'draft release points at a different registry digest'
+  cmp "$remote_dir/build-manifest.json" "$root/existing-build-manifest.json" \
+    || die 'draft manifest differs from the immutable image manifest'
+  cp "$remote_dir"/* "$artifacts_dir"/
+else
+  jq -n --arg tag "$version" --arg commit "$commit" --arg digest "$image_digest" \
+    '{tag_name:$tag,target_commitish:$commit,name:$tag,draft:true,prerelease:false,generate_release_notes:true,body:("Container: `ghcr.io/slidebolt/release:"+$tag+"`\n\nDigest: `"+$digest+"`")}' \
+    > "$root/create-release.json"
+  api -X POST "https://api.github.com/repos/$repo/releases" \
+    -H 'Content-Type: application/json' --data-binary "@$root/create-release.json" > "$release_json"
+  release_id="$(jq -er .id "$release_json")"
+  upload_url="$(jq -er .upload_url "$release_json" | sed 's/{.*//')"
 
-for file in "$artifacts_dir"/*; do
-  name="$(basename "$file")"
-  api -X POST "${upload_url}?name=${name}" -H 'Content-Type: application/octet-stream' \
-    --data-binary "@$file" >/dev/null
-done
+  for file in "$artifacts_dir"/*; do
+    name="$(basename "$file")"
+    api -X POST "${upload_url}?name=${name}" -H 'Content-Type: application/octet-stream' \
+      --data-binary "@$file" >/dev/null
+  done
+fi
 
 # Verify every uploaded draft asset through the authenticated API before
 # exposing the release or moving latest.
 while read -r expected name; do
   asset_id="$(api "https://api.github.com/repos/$repo/releases/$release_id/assets" | \
     jq -er --arg name "$name" '.[] | select(.name == $name) | .id')"
-  actual="$(api -L -H 'Accept: application/octet-stream' \
+  actual="$(api_asset -L \
     "https://api.github.com/repos/$repo/releases/assets/$asset_id" | sha256sum | awk '{print $1}')"
   [[ "$actual" == "$expected" ]] || die "published checksum mismatch: $name"
 done < "$artifacts_dir/SHA256SUMS"

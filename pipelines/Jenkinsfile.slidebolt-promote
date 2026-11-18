@@ -6,6 +6,7 @@ pipeline {
     string(name: 'CANDIDATE_BUILD', description: 'Successful slidebolt-candidate build number')
     string(name: 'CONFIRM_VERSION', description: 'Repeat RELEASE_VERSION to authorize publication')
     string(name: 'CANDIDATE_JOB', defaultValue: '/Slidebolt/release/candidate', description: 'Candidate job containing the fingerprinted proof')
+    booleanParam(name: 'RESUME_PARTIAL', defaultValue: false, description: 'Resume a verified draft after an interrupted immutable-image publication')
   }
   stages {
     stage('Load verified candidate') {

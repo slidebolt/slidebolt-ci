@@ -103,6 +103,11 @@ confirmation field. Promotion:
    the `latest` image tag.
 
 The version tag and `latest` are never moved by an ordinary verification job.
+If publication stops after the immutable image and draft are created, rerun
+promotion with `RESUME_PARTIAL=true`. Recovery still repeats the complete
+verification, then requires the existing image digest, embedded manifest,
+draft target commit, asset set, and every published checksum to match before
+it publishes the draft or moves `latest`.
 
 ## Bootstrap proof from the command line
 

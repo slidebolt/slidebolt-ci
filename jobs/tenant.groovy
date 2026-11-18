@@ -69,6 +69,7 @@ pipelineJob('Slidebolt/release/promote') {
     stringParam('CANDIDATE_BUILD', '', 'Successful candidate build number')
     stringParam('CONFIRM_VERSION', '', 'Repeat RELEASE_VERSION to authorize publication')
     stringParam('CANDIDATE_JOB', '/Slidebolt/release/candidate', 'Candidate job containing the fingerprinted proof')
+    booleanParam('RESUME_PARTIAL', false, 'Resume a verified draft after an interrupted immutable-image publication')
   }
   definition {
     cpsScm {
