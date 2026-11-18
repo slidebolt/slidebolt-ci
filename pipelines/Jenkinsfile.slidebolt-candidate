@@ -1,6 +1,11 @@
 pipeline {
   agent { label 'slidebolt || built-in' }
-  options { timestamps(); timeout(time: 90, unit: 'MINUTES'); disableConcurrentBuilds() }
+  options {
+    timestamps()
+    timeout(time: 90, unit: 'MINUTES')
+    disableConcurrentBuilds()
+    copyArtifactPermission('/Slidebolt/release/promote')
+  }
   stages {
     stage('Verify release main') {
       steps {
