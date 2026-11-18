@@ -5,7 +5,7 @@ pipeline {
     string(name: 'RELEASE_VERSION', description: 'New v-prefixed release version')
     string(name: 'CANDIDATE_BUILD', description: 'Successful slidebolt-candidate build number')
     string(name: 'CONFIRM_VERSION', description: 'Repeat RELEASE_VERSION to authorize publication')
-    string(name: 'CANDIDATE_JOB', defaultValue: 'Slidebolt/release/candidate', description: 'Candidate job containing the fingerprinted proof')
+    string(name: 'CANDIDATE_JOB', defaultValue: '/Slidebolt/release/candidate', description: 'Candidate job containing the fingerprinted proof')
   }
   stages {
     stage('Load verified candidate') {
@@ -33,7 +33,8 @@ pipeline {
     stage('Reverify and publish') {
       steps {
         withCredentials([
-          usernamePassword(credentialsId: 'github-release-publisher', usernameVariable: 'GITHUB_PUBLISHER_USER', passwordVariable: 'GITHUB_RELEASE_TOKEN')
+          usernamePassword(credentialsId: 'github-release-publisher', usernameVariable: 'GITHUB_PUBLISHER_USER', passwordVariable: 'GITHUB_RELEASE_TOKEN'),
+          string(credentialsId: 'github-read-token', variable: 'GITHUB_READ_TOKEN')
         ]) {
           sh 'scripts/promote-slidebolt.sh "$RELEASE_VERSION" candidate-proof.json'
         }

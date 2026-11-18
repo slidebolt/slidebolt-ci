@@ -80,9 +80,11 @@ credential named `github-read-token` with read access to the private
 
 To publish final releases, create a Jenkins **Username with password**
 credential named `github-release-publisher`. The username is the GitHub owner
-of the token. Use a fine-grained token limited to `slidebolt/release` with
-Contents read/write and permission to write the `slidebolt/release` container
-package. Verification and candidate jobs never receive this credential.
+of the token. GitHub Packages currently requires a classic token; grant it
+`write:packages`, `read:packages`, and `public_repo` for the public
+`slidebolt/release` repository. Verification and candidate jobs never receive
+this credential. Promotion also receives the separate `github-read-token` only
+while it re-runs the private verification suite.
 
 ## Final release promotion
 

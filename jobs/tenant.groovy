@@ -47,6 +47,13 @@ catalog.packages.each { item ->
 pipelineJob('Slidebolt/release/candidate') {
   description('Builds and verifies the complete image from release/main without publishing it.')
   logRotator { numToKeep(20); artifactNumToKeep(10) }
+  configure { project ->
+    project / properties / 'hudson.plugins.copyartifact.CopyArtifactPermissionProperty' {
+      projectNameList {
+        string('/Slidebolt/release/promote')
+      }
+    }
+  }
   definition {
     cpsScm {
       scm {
@@ -64,6 +71,12 @@ pipelineJob('Slidebolt/release/candidate') {
 pipelineJob('Slidebolt/release/promote') {
   description('Publishes an exact successful candidate as an immutable Slidebolt release.')
   logRotator { numToKeep(20); artifactNumToKeep(10) }
+  parameters {
+    stringParam('RELEASE_VERSION', '', 'New v-prefixed release version')
+    stringParam('CANDIDATE_BUILD', '', 'Successful candidate build number')
+    stringParam('CONFIRM_VERSION', '', 'Repeat RELEASE_VERSION to authorize publication')
+    stringParam('CANDIDATE_JOB', '/Slidebolt/release/candidate', 'Candidate job containing the fingerprinted proof')
+  }
   definition {
     cpsScm {
       scm {
