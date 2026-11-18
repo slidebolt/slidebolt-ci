@@ -92,8 +92,9 @@ pipeline {
       steps {
         sh '''
           release_commit="$(git -C work/release rev-parse HEAD)"
-          if compgen -G 'package-proofs/*/package-proof.json' >/dev/null; then
-            jq -s 'sort_by(.repository)' package-proofs/*/package-proof.json > component-proofs.json
+          set -- package-proofs/*/package-proof.json
+          if test -e "$1"; then
+            jq -s 'sort_by(.repository)' "$@" > component-proofs.json
           else
             printf '[]\n' > component-proofs.json
           fi
