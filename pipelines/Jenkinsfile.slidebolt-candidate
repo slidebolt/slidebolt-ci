@@ -4,7 +4,11 @@ pipeline {
   stages {
     stage('Verify release main') {
       steps {
-        sh 'scripts/verify-slidebolt.sh main'
+        withCredentials([
+          string(credentialsId: 'github-read-token', variable: 'GITHUB_READ_TOKEN')
+        ]) {
+          sh 'scripts/verify-slidebolt.sh main'
+        }
       }
     }
     stage('Record candidate proof') {
