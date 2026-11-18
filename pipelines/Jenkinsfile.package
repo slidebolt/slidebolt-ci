@@ -5,6 +5,7 @@ pipeline {
     timeout(time: 60, unit: 'MINUTES')
     disableConcurrentBuilds()
     skipDefaultCheckout(true)
+    copyArtifactPermission('/Slidebolt/release/candidate')
   }
   stages {
     stage('Checkout CI contract') {

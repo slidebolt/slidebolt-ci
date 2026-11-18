@@ -7,6 +7,61 @@ pipeline {
     copyArtifactPermission('/Slidebolt/release/promote')
   }
   stages {
+    stage('Checkout release catalog') {
+      steps {
+        sh '''
+          mkdir -p work
+          if test -d work/release/.git; then
+            git -C work/release fetch --tags --prune origin
+          else
+            git clone https://github.com/slidebolt/release.git work/release
+          fi
+          git -C work/release checkout --detach origin/main
+        '''
+      }
+    }
+    stage('Verify changed components') {
+      steps {
+        script {
+          def rows = sh(
+            returnStdout: true,
+            script: 'python3 scripts/changed-packages.py work/release catalog/packages.json'
+          ).trim()
+          if (rows) {
+            def checks = [:]
+            rows.readLines().each { row ->
+              def fields = row.split('\\t', 3)
+              def repository = fields[0]
+              def kind = fields[1]
+              def revision = fields[2]
+              checks[repository] = {
+                def verified = build(
+                  job: "/Slidebolt/packages/${repository}",
+                  parameters: [
+                    string(name: 'REPOSITORY', value: repository),
+                    string(name: 'PACKAGE_KIND', value: kind),
+                    string(name: 'REVISION', value: revision)
+                  ],
+                  wait: true,
+                  propagate: true
+                )
+                dir("package-proofs/${repository}") {
+                  copyArtifacts(
+                    projectName: "/Slidebolt/packages/${repository}",
+                    selector: specific("${verified.number}"),
+                    filter: 'package-proof.json',
+                    fingerprintArtifacts: true
+                  )
+                }
+              }
+            }
+            parallel checks
+          } else {
+            echo 'No component version changed since the latest release tag.'
+          }
+        }
+      }
+    }
     stage('Verify release main') {
       steps {
         withCredentials([
@@ -20,6 +75,11 @@ pipeline {
       steps {
         sh '''
           release_commit="$(git -C work/release rev-parse HEAD)"
+          if compgen -G 'package-proofs/*/package-proof.json' >/dev/null; then
+            jq -s 'sort_by(.repository)' package-proofs/*/package-proof.json > component-proofs.json
+          else
+            printf '[]\n' > component-proofs.json
+          fi
           jq -n \
             --arg releaseCommit "$release_commit" \
             --arg ciCommit "$(git rev-parse HEAD)" \
@@ -28,7 +88,7 @@ pipeline {
             '{schemaVersion:1,releaseCommit:$releaseCommit,ciCommit:$ciCommit,candidateBuild:($buildNumber|tonumber),candidateUrl:$buildUrl}' \
             > candidate-proof.json
         '''
-        archiveArtifacts artifacts: 'candidate-proof.json', fingerprint: true
+        archiveArtifacts artifacts: 'candidate-proof.json,component-proofs.json,package-proofs/*/package-proof.json', fingerprint: true
       }
     }
   }

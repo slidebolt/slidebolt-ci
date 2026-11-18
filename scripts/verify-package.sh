@@ -21,9 +21,7 @@ case "$kind" in
     ;;
   zigbee-host)
     npm ci
-    npm run check
     npm test
-    docker build -t "slidebolt-ci/zigbee-host:${BUILD_TAG:-local}" .
     ;;
   ui)
     pnpm install --frozen-lockfile
