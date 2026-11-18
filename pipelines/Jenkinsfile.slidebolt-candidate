@@ -1,14 +1,20 @@
+def componentPlan = []
+def componentBuilds = [:]
+
 pipeline {
-  agent { label 'slidebolt || built-in' }
+  agent none
   options {
     timestamps()
     timeout(time: 90, unit: 'MINUTES')
     disableConcurrentBuilds()
+    skipDefaultCheckout(true)
     copyArtifactPermission('/Slidebolt/release/promote')
   }
   stages {
     stage('Checkout release catalog') {
+      agent { label 'slidebolt' }
       steps {
+        checkout scm
         sh '''
           mkdir -p work
           if test -d work/release/.git; then
@@ -18,18 +24,22 @@ pipeline {
           fi
           git -C work/release checkout --detach origin/main
         '''
-      }
-    }
-    stage('Verify changed components') {
-      steps {
         script {
           def rows = sh(
             returnStdout: true,
             script: 'python3 scripts/changed-packages.py work/release catalog/packages.json'
           ).trim()
-          if (rows) {
+          componentPlan = rows ? rows.readLines() : []
+        }
+      }
+    }
+    stage('Verify changed components') {
+      agent none
+      steps {
+        script {
+          if (componentPlan) {
             def checks = [:]
-            rows.readLines().each { row ->
+            componentPlan.each { row ->
               def fields = row.split('\\t', 3)
               def repository = fields[0]
               def kind = fields[1]
@@ -45,17 +55,10 @@ pipeline {
                   wait: true,
                   propagate: true
                 )
-                dir("package-proofs/${repository}") {
-                  copyArtifacts(
-                    projectName: "/Slidebolt/packages/${repository}",
-                    selector: specific("${verified.number}"),
-                    filter: 'package-proof.json',
-                    fingerprintArtifacts: true
-                  )
-                }
+                return "${verified.number}"
               }
             }
-            parallel checks
+            componentBuilds = parallel checks
           } else {
             echo 'No component version changed since the latest release tag.'
           }
@@ -63,7 +66,20 @@ pipeline {
       }
     }
     stage('Verify release main') {
+      agent { label 'slidebolt' }
       steps {
+        script {
+          componentBuilds.each { repository, buildNumber ->
+            dir("package-proofs/${repository}") {
+              copyArtifacts(
+                projectName: "/Slidebolt/packages/${repository}",
+                selector: specific("${buildNumber}"),
+                filter: 'package-proof.json',
+                fingerprintArtifacts: true
+              )
+            }
+          }
+        }
         withCredentials([
           string(credentialsId: 'github-read-token', variable: 'GITHUB_READ_TOKEN')
         ]) {
@@ -72,6 +88,7 @@ pipeline {
       }
     }
     stage('Record candidate proof') {
+      agent { label 'slidebolt' }
       steps {
         sh '''
           release_commit="$(git -C work/release rev-parse HEAD)"
@@ -94,8 +111,10 @@ pipeline {
   }
   post {
     always {
-      archiveArtifacts allowEmptyArchive: true, artifacts: 'work/sb-e2e/artifacts/**/*'
-      cleanWs(deleteDirs: true)
+      node('slidebolt') {
+        archiveArtifacts allowEmptyArchive: true, artifacts: 'work/sb-e2e/artifacts/**/*'
+        cleanWs(deleteDirs: true)
+      }
     }
   }
 }
