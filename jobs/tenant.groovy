@@ -48,7 +48,7 @@ pipelineJob('Slidebolt/release/candidate') {
   description('Builds and verifies the complete image from release/main without publishing it.')
   logRotator { numToKeep(20); artifactNumToKeep(10) }
   configure { project ->
-    project / properties / 'hudson.plugins.copyartifact.CopyArtifactPermissionProperty' {
+    project / 'properties' / 'hudson.plugins.copyartifact.CopyArtifactPermissionProperty' {
       projectNameList {
         string('/Slidebolt/release/promote')
       }
